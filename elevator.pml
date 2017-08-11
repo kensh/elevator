@@ -1,5 +1,5 @@
-#define NUM_PASS 3
-#define MAX_PASS 2
+#define NUM_PASS 8
+#define MAX_PASS 3
 #define HEIGHT 4			// bit wise
 
 mtype = {
@@ -34,10 +34,13 @@ typedef Object
     
 };
 
-byte participation = 0;			// bit wise
-byte turn = 0;				// bit wise
+short participation = 0;		// bit wise
+short turn = 0;				// bit wise
 Object elevator;
 
+inline echo0() {
+	printf("passenger.state :%e, turn :%d, passenger.id :%d  passenger.floor :%d, destination :%d\n",passenger.state, turn, passenger.id, passenger.floor , passenger.destination);
+}
 
 inline echo1() {
 	printf("passenger.state :%e, turn :%d, passenger.id :%d  stopping_floors:%d, floor:%d\n",passenger.state, turn, passenger.id, elevator.stopping_floors , elevator.floor);
@@ -49,7 +52,7 @@ inline echo2() {
 
 proctype Passenger(Object passenger)
 {
-
+  echo0();
   participation = participation | passenger.id;
   do
   	:: passenger.state == WAIT -> wait: 
@@ -100,9 +103,10 @@ proctype Elevator()
 	   turn == 0;
 	   atomic {
 		if
-		:: elevator.stopping_floors > 0 && elevator.stopping_floors > elevator.floor  -> elevator.state = MOVE_UP; elevator.last_state = WAIT;
-		:: elevator.stopping_floors > 0 && elevator.stopping_floors < elevator.floor && elevator.floor > 1 -> elevator.state = MOVE_DOWN; elevator.last_state = WAIT;
-
+		:: elevator.stopping_floors > 0 && elevator.stopping_floors > elevator.floor && elevator.floor < HEIGHT -> elevator.state = MOVE_UP;
+		   elevator.last_state = WAIT;
+		:: elevator.stopping_floors > 0 && elevator.stopping_floors < elevator.floor && elevator.floor > 1      -> elevator.state = MOVE_DOWN;
+		   elevator.last_state = WAIT;
 		:: else -> skip;
 		fi;
 		echo2();
@@ -113,7 +117,8 @@ proctype Elevator()
 	   atomic {
 		elevator.floor = elevator.floor << 1;
 		elevator.stopping_floors = (elevator.stopping_floors ^ elevator.floor) & elevator.stopping_floors;
-		elevator.state = FLOOR; elevator.last_state = MOVE_UP;
+		elevator.state = FLOOR;
+		elevator.last_state = MOVE_UP;
 		echo2();
 		turn = participation;
 	   };
@@ -122,7 +127,8 @@ proctype Elevator()
 	   atomic {
 		elevator.floor = elevator.floor >> 1;
 		elevator.stopping_floors = (elevator.stopping_floors ^ elevator.floor) & elevator.stopping_floors;
-		elevator.state = FLOOR; elevator.last_state = MOVE_UP;
+		elevator.state = FLOOR;
+		elevator.last_state = MOVE_DOWN;
 		echo2();
 		turn = participation;
 	   };
@@ -130,12 +136,13 @@ proctype Elevator()
 	   turn == 0;
 	   atomic {
 		if
-		:: elevator.last_state == MOVE_UP && elevator.stopping_floors > elevator.floor  -> elevator.state = MOVE_UP;
+		:: elevator.last_state == MOVE_UP && elevator.stopping_floors > elevator.floor && elevator.floor < HEIGHT -> elevator.state = MOVE_UP;
 		:: elevator.last_state == MOVE_UP && elevator.stopping_floors < elevator.floor  -> elevator.state = MOVE_DOWN;
-		:: elevator.last_state == MOVE_DOWN && elevator.stopping_floors & (elevator.floor-1) > 0 -> elevator.state = MOVE_DOWN;
+		:: elevator.last_state == MOVE_DOWN && elevator.stopping_floors & (elevator.floor-1) > 0 && elevator.floor > 0 -> elevator.state = MOVE_DOWN;
 		:: elevator.last_state == MOVE_DOWN && elevator.stopping_floors & (elevator.floor-1) == 0 && elevator.stopping_floors > 0 -> elevator.state = MOVE_UP;
 		:: else -> elevator.state = WAIT;
 		fi;
+		elevator.last_state = FLOOR;
 		echo2();
 		turn = participation;
 	   };
@@ -145,32 +152,37 @@ proctype Elevator()
 
 
 init {
+	byte i = 0;
+	short id = 1;
+	byte floor = 1;
+	byte destination = 1;
 
-	Object passenger1;
-	passenger1.id = 1;
-	passenger1.floor=2;
-	passenger1.destination=4;
+	do
+	:: i < NUM_PASS -> 
+	  if
+	  :: floor = 1;
+	  :: floor = 2;
+	  :: floor = 4;
+	  fi;
+	  if
+	  :: destination = 1;
+	  :: destination = 2;
+	  :: destination = 4;
+	  fi;
 
-	Object passenger2;
-	passenger2.id = 2;
-	passenger2.floor=4;
-	passenger2.destination=1;
-	
-	Object passenger3;
-	passenger3.id = 4;
-	passenger3.floor=1;
-	passenger3.destination=8;
-	
-	Object passenger4;
-	passenger4.id = 8;
-	passenger4.floor=1;
-	passenger4.destination=4;
-	
-	run Passenger(passenger1);
-	run Passenger(passenger2);
-	run Passenger(passenger3);
-	run Passenger(passenger4);
-	
+	  atomic{
+		Object passenger;
+		passenger.id = id;
+		passenger.floor = floor;
+		passenger.destination = destination;
+	 	i++;
+		id = id << 1;
+ 
+	  	run Passenger(passenger);
+	  };
+	:: else -> break;
+	od;
+
 	elevator.floor = 1;
 	run Elevator();
 }
