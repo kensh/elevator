@@ -21,6 +21,7 @@ typedef Object
 {
     /* common fields */
     mtype state = WAIT;
+    mtype last_state = WAIT;
     byte floor = 0;			// bit wise current floor
    
     /* elevator fields */
@@ -99,8 +100,9 @@ proctype Elevator()
 	   turn == 0;
 	   atomic {
 		if
-		:: elevator.stopping_floors > 0 && elevator.stopping_floors > elevator.floor  -> elevator.state = MOVE_UP;
-		:: elevator.stopping_floors > 0 && elevator.stopping_floors < elevator.floor && elevator.floor > 1 -> elevator.state = MOVE_DOWN;
+		:: elevator.stopping_floors > 0 && elevator.stopping_floors > elevator.floor  -> elevator.state = MOVE_UP; elevator.last_state = WAIT;
+		:: elevator.stopping_floors > 0 && elevator.stopping_floors < elevator.floor && elevator.floor > 1 -> elevator.state = MOVE_DOWN; elevator.last_state = WAIT;
+
 		:: else -> skip;
 		fi;
 		echo2();
@@ -111,7 +113,7 @@ proctype Elevator()
 	   atomic {
 		elevator.floor = elevator.floor << 1;
 		elevator.stopping_floors = (elevator.stopping_floors ^ elevator.floor) & elevator.stopping_floors;
-		elevator.state = FLOOR;
+		elevator.state = FLOOR; elevator.last_state = MOVE_UP;
 		echo2();
 		turn = participation;
 	   };
@@ -120,7 +122,7 @@ proctype Elevator()
 	   atomic {
 		elevator.floor = elevator.floor >> 1;
 		elevator.stopping_floors = (elevator.stopping_floors ^ elevator.floor) & elevator.stopping_floors;
-		elevator.state = FLOOR;
+		elevator.state = FLOOR; elevator.last_state = MOVE_UP;
 		echo2();
 		turn = participation;
 	   };
@@ -128,10 +130,10 @@ proctype Elevator()
 	   turn == 0;
 	   atomic {
 		if
-		:: elevator.state == MOVE_UP && elevator.stopping_floors > elevator.floor  -> elevator.state = MOVE_UP;
-		:: elevator.state == MOVE_UP && elevator.stopping_floors < elevator.floor  -> elevator.state = MOVE_DOWN;
-		:: elevator.state == MOVE_DOWN && elevator.stopping_floors & (elevator.floor-1) > 0 -> elevator.state = MOVE_DOWN;
-		:: elevator.state == MOVE_DOWN && elevator.stopping_floors & (elevator.floor-1) == 0 && elevator.stopping_floors > 0 -> elevator.state = MOVE_UP;
+		:: elevator.last_state == MOVE_UP && elevator.stopping_floors > elevator.floor  -> elevator.state = MOVE_UP;
+		:: elevator.last_state == MOVE_UP && elevator.stopping_floors < elevator.floor  -> elevator.state = MOVE_DOWN;
+		:: elevator.last_state == MOVE_DOWN && elevator.stopping_floors & (elevator.floor-1) > 0 -> elevator.state = MOVE_DOWN;
+		:: elevator.last_state == MOVE_DOWN && elevator.stopping_floors & (elevator.floor-1) == 0 && elevator.stopping_floors > 0 -> elevator.state = MOVE_UP;
 		:: else -> elevator.state = WAIT;
 		fi;
 		echo2();
